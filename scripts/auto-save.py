@@ -14,10 +14,10 @@ def parse_transcript(transcript_path: str) -> list:
     """Parse JSONL transcript file and extract conversation."""
     messages = []
     expanded_path = os.path.expanduser(transcript_path)
-    
+
     if not os.path.exists(expanded_path):
         return messages
-    
+
     with open(expanded_path, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
@@ -25,21 +25,32 @@ def parse_transcript(transcript_path: str) -> list:
                 continue
             try:
                 entry = json.loads(line)
-                # Extract message content based on type
-                if entry.get('type') == 'human':
+                entry_type = entry.get('type')
+
+                # Extract user input (type: 'user' in transcript)
+                # Skip tool results (entries with 'toolUseResult' key)
+                if entry_type == 'user' and 'toolUseResult' not in entry:
                     content = entry.get('message', {}).get('content', '')
-                    if isinstance(content, list):
-                        # Handle content blocks
+                    if isinstance(content, str) and content.strip():
+                        # Direct user input as string
+                        messages.append({'role': 'user', 'content': content.strip()})
+                    elif isinstance(content, list):
+                        # Handle content blocks (but skip tool_result blocks)
                         text_parts = []
                         for block in content:
-                            if isinstance(block, dict) and block.get('type') == 'text':
-                                text_parts.append(block.get('text', ''))
+                            if isinstance(block, dict):
+                                # Only extract text blocks, skip tool_result
+                                if block.get('type') == 'text':
+                                    text_parts.append(block.get('text', ''))
                             elif isinstance(block, str):
                                 text_parts.append(block)
-                        content = '\n'.join(text_parts)
-                    if content:
-                        messages.append({'role': 'user', 'content': content})
-                elif entry.get('type') == 'assistant':
+                        if text_parts:
+                            content = '\n'.join(text_parts)
+                            if content.strip():
+                                messages.append({'role': 'user', 'content': content.strip()})
+
+                # Extract Claude's response
+                elif entry_type == 'assistant':
                     content = entry.get('message', {}).get('content', '')
                     if isinstance(content, list):
                         text_parts = []
@@ -47,11 +58,11 @@ def parse_transcript(transcript_path: str) -> list:
                             if isinstance(block, dict) and block.get('type') == 'text':
                                 text_parts.append(block.get('text', ''))
                         content = '\n'.join(text_parts)
-                    if content:
-                        messages.append({'role': 'assistant', 'content': content})
+                    if content and content.strip():
+                        messages.append({'role': 'assistant', 'content': content.strip()})
             except json.JSONDecodeError:
                 continue
-    
+
     return messages
 
 def generate_markdown(messages: list, session_id: str, cwd: str) -> str:
