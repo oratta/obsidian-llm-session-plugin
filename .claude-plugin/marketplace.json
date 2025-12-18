@@ -1,0 +1,14 @@
+{
+  "name": "oratta",
+  "owner": {
+    "name": "Oratta"
+  },
+  "plugins": [
+    {
+      "name": "obsidian-llm-session-rules",
+      "source": ".",
+      "description": "Obsidian LLM Session用のルールセット - セッションログ保存、コンテキスト管理、Context7優先調査",
+      "version": "1.0.0"
+    }
+  ]
+}
